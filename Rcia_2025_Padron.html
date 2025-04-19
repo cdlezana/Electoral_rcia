@@ -9,13 +9,20 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
-  <!-- Leaflet.markercluster -->
+  <!-- MarkerCluster -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <style>
     #map { height: 100vh; }
+    .tooltip-circuito {
+      background-color: rgba(255, 255, 255, 0.6);
+      border: 1px solid #333;
+      padding: 2px 4px;
+      font-weight: bold;
+      color: #000;
+    }
   </style>
 </head>
 <body>
@@ -23,54 +30,103 @@
 <div id="map"></div>
 
 <script>
-  // Inicializar mapa
-  const map = L.map('map').setView([-27.45059, -58.987993], 10); // Ajustá coordenadas a tu zona
+  const map = L.map('map').setView([-27.45059, -58.987993], 10);
 
   // Base map
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
   }).addTo(map);
 
-  // Función para cargar GeoJSON desde URL
-  function cargarGeoJson(url, opciones = {}) {
-    fetch(url)
-      .then(response => response.json())
-      .then(data => {
-        L.geoJSON(data, opciones).addTo(map);
-      })
-      .catch(err => console.error(`Error al cargar ${url}`, err));
-  }
+  const capaCircuitos = L.layerGroup();
+  const capaBarrios = L.layerGroup();
 
-  // Cargar polígonos
-  cargarGeoJson('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/Circuitos_elect_rcia_2019.geojson', {
-    style: { color: 'blue', weight: 2, fillOpacity: 0.4 }
-  });
+  // Circuitos
+  fetch('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/Circuitos_elect_rcia_2019.geojson')
+    .then(res => res.json())
+    .then(data => {
+      L.geoJSON(data, {
+        style: { color: 'blue', weight: 3, fillOpacity: 0.2 },
+        onEachFeature: (feature, layer) => {
+          const nombre = feature.properties?.CIRCUITO || 'Circuito';
+          layer.bindTooltip(`<strong>${nombre}</strong>`, {
+            permanent: true,
+            direction: 'center',
+            className: 'tooltip-circuito'
+          });
+        }
+      }).addTo(capaCircuitos);
+    });
 
-  cargarGeoJson('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/barrios_rcia_4326.geojson', {
-    style: { color: 'green', weight: 2, fillOpacity: 0.4 }
-  });
+  // Barrios
+  fetch('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/barrios_rcia_4326.geojson')
+    .then(res => res.json())
+    .then(data => {
+      L.geoJSON(data, {
+        style: { color: 'green', weight: 2, fillOpacity: 0.4 },
+        onEachFeature: (feature, layer) => {
+          const nombre = feature.properties?.Barrio || 'Barrio';
+          layer.on('click', () => {
+            layer.bindTooltip(`<strong>${nombre}</strong>`, {
+              direction: 'top',
+              sticky: true
+            }).openTooltip();
+          });
+        }
+      }).addTo(capaBarrios);
+    });
 
-  // Cargar puntos con cluster
+  capaCircuitos.addTo(map);
+  capaBarrios.addTo(map);
+
+  // Capas control
+  L.control.layers({}, {
+    "Circuitos": capaCircuitos,
+    "Barrios": capaBarrios
+  }).addTo(map);
+
+  // Clustering de puntos
   fetch('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/Esc_rcia_padron_25.geojson')
     .then(res => res.json())
     .then(data => {
-      const markers = L.markerClusterGroup();
+      const markers = L.markerClusterGroup({
+        iconCreateFunction: cluster => {
+          let totalMesas = 0;
+          cluster.getAllChildMarkers().forEach(marker => {
+            totalMesas += marker.options.mesas || 0;
+          });
 
-      const geoJsonLayer = L.geoJSON(data, {
-        pointToLayer: function (feature, latlng) {
-          return L.marker(latlng);
-        },
-        onEachFeature: function (feature, layer) {
-          const props = feature.properties;
-          const popup = Object.entries(props).map(([key, value]) => `<strong>${key}:</strong> ${value}`).join('<br>');
-          layer.bindPopup(popup);
+          // Gama de colores
+          let color = 'green';
+          if (totalMesas > 40) color = 'red';
+          else if (totalMesas > 10) color = 'orange';
+          else if (totalMesas > 5) color = 'yellow';
+
+          return L.divIcon({
+            html: `<div style="background-color: ${color}; border-radius: 50%; padding: 10px; border: 2px solid #555; color: black;"><strong>${totalMesas}</strong></div>`,
+            className: 'custom-cluster',
+            iconSize: L.point(40, 40)
+          });
         }
       });
 
-      markers.addLayer(geoJsonLayer);
+      data.features.forEach(f => {
+        const coords = f.geometry.coordinates;
+        const latlng = L.latLng(coords[1], coords[0]);
+        const mesas = Number(f.properties.Mesas) || 0;
+        const marker = L.marker(latlng, { mesas: mesas });
+
+        let popup = `<strong>Mesas:</strong> ${mesas}<br>`;
+        for (const [key, value] of Object.entries(f.properties)) {
+          if (key !== 'Mesas') popup += `<strong>${key}:</strong> ${value}<br>`;
+        }
+        marker.bindPopup(popup);
+
+        markers.addLayer(marker);
+      });
+
       map.addLayer(markers);
     })
-    .catch(err => console.error('Error al cargar puntos', err));
+    .catch(err => console.error('Error cargando puntos:', err));
 </script>
 
 </body>
