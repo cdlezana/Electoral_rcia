@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Mapa con Leaflet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+  <!-- Leaflet.markercluster -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+  <style>
+    #map { height: 100vh; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<script>
+  // Inicializar mapa
+  const map = L.map('map').setView([-27.45059, -58.987993], 10); // Ajustá coordenadas a tu zona
+
+  // Base map
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Función para cargar GeoJSON desde URL
+  function cargarGeoJson(url, opciones = {}) {
+    fetch(url)
+      .then(response => response.json())
+      .then(data => {
+        L.geoJSON(data, opciones).addTo(map);
+      })
+      .catch(err => console.error(`Error al cargar ${url}`, err));
+  }
+
+  // Cargar polígonos
+  cargarGeoJson('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/poligono1.geojson', {
+    style: { color: 'blue', weight: 2, fillOpacity: 0.4 }
+  });
+
+  cargarGeoJson('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/poligono2.geojson', {
+    style: { color: 'green', weight: 2, fillOpacity: 0.4 }
+  });
+
+  // Cargar puntos con cluster
+  fetch('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/puntos.geojson')
+    .then(res => res.json())
+    .then(data => {
+      const markers = L.markerClusterGroup();
+
+      const geoJsonLayer = L.geoJSON(data, {
+        pointToLayer: function (feature, latlng) {
+          return L.marker(latlng);
+        },
+        onEachFeature: function (feature, layer) {
+          const props = feature.properties;
+          const popup = Object.entries(props).map(([key, value]) => `<strong>${key}:</strong> ${value}`).join('<br>');
+          layer.bindPopup(popup);
+        }
+      });
+
+      markers.addLayer(geoJsonLayer);
+      map.addLayer(markers);
+    })
+    .catch(err => console.error('Error al cargar puntos', err));
+</script>
+
+</body>
+</html>
