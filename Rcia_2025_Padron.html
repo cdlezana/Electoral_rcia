@@ -42,16 +42,16 @@
   }
 
   // Cargar polígonos
-  cargarGeoJson('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/poligono1.geojson', {
+  cargarGeoJson('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/Circuitos_elect_rcia_2019.geojson', {
     style: { color: 'blue', weight: 2, fillOpacity: 0.4 }
   });
 
-  cargarGeoJson('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/poligono2.geojson', {
+  cargarGeoJson('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/barrios_rcia_4326.geojson', {
     style: { color: 'green', weight: 2, fillOpacity: 0.4 }
   });
 
   // Cargar puntos con cluster
-  fetch('https://raw.githubusercontent.com/tu-usuario/tu-repo/main/ruta/puntos.geojson')
+  fetch('https://raw.githubusercontent.com/cdlezana/Electoral_rcia/refs/heads/cdlezana-patch-1/Esc_rcia_padron_25.geojson')
     .then(res => res.json())
     .then(data => {
       const markers = L.markerClusterGroup();
