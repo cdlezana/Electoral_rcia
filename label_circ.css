@@ -1,0 +1,10 @@
+<style>
+  .label-circuito {
+    background-color: white;
+    border: 1px solid gray;
+    padding: 2px 4px;
+    font-size: 12px;
+    font-weight: bold;
+    border-radius: 3px;
+  }
+</style>
